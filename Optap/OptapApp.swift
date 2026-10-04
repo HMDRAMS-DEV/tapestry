@@ -1,7 +1,10 @@
 import AppKit
 import ApplicationServices
 import ServiceManagement
+import os
 import simd
+
+let log = Logger(subsystem: "dev.optap.Optap", category: "gesture")
 
 // Optap: a trackpad gesture that presses Option. Menu bar only.
 
@@ -76,6 +79,7 @@ final class Detector {
             if !holding, n == target, maxFingers == target, !moved,
                let reached = reachedTargetAt, t - reached >= holdDelay {
                 holding = true
+                log.info("hold matched, Option down (accessibility=\(AXIsProcessTrusted()))")
                 OptionKey.set(down: true)
             } else if holding, n < target {
                 holding = false
@@ -84,7 +88,9 @@ final class Detector {
         }
 
         guard n == 0, let start = sessionStart else { return }
+        log.info("touch ended: fingers=\(self.maxFingers) duration=\(t - start, format: .fixed(precision: 2)) moved=\(self.moved)")
         if !gesture.isHold, maxFingers == target, !moved, t - start <= maxTapDuration {
+            log.info("tap matched, posting Option (accessibility=\(AXIsProcessTrusted()))")
             OptionKey.tap()
         }
         reset()
@@ -155,6 +161,7 @@ enum Multitouch {
             register(ptr, callback)
             startDevice(ptr, 0)
         }
+        log.info("multitouch started: devices=\(CFArrayGetCount(list))")
         return CFArrayGetCount(list) > 0
     }
 
@@ -199,6 +206,7 @@ final class OptapApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let prompt = "AXTrustedCheckOptionPrompt"
         _ = AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary)
 
+        log.info("launch: accessibility=\(AXIsProcessTrusted()) gesture=\(Detector.shared.gesture.rawValue, privacy: .public)")
         _ = Multitouch.start()
 
         // Trackpads stop reporting after sleep, and a Magic Trackpad can connect later.

@@ -1,8 +1,7 @@
-<p align="center"><img src="docs/icon.png" width="160" alt="Optap icon"></p>
-
-<h1 align="center">Optap</h1>
-
-<p align="center">A trackpad gesture that presses Option. A tiny macOS menu bar app, one Swift file.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.png">
+  <img src="docs/banner-light.png" alt="Optap: tap your trackpad, press Option. A tiny macOS menu bar app that turns a three-finger tap into the Option key.">
+</picture>
 
 Some apps start something when you tap or hold Option, like dictation or push-to-talk. Optap lets you do that from the trackpad, without BetterTouchTool.
 
@@ -39,9 +38,9 @@ Requirements: macOS 15 or later on Apple silicon and the Xcode Command Line Tool
 open build/Optap.app
 ```
 
-The build is ad-hoc signed. After a rebuild, macOS may drop the Accessibility permission. If the gesture stops working, remove Optap from System Settings > Privacy & Security > Accessibility and add it again.
+macOS ties the Accessibility permission to the app's signature. `build.sh` signs with a code signing certificate named "Optap Local Signing" if your keychain has one, so the permission survives rebuilds. Without it the build is ad-hoc signed, and after each rebuild you need to remove Optap from System Settings > Privacy & Security > Accessibility and add it again.
 
-To redraw the icon: `swift scripts/render-icon.swift`.
+To redraw the icon: `swift scripts/render-icon.swift`. To redraw the README banner: `scripts/render-banner.sh` (needs Google Chrome).
 
 ## License
 

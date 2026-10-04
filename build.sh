@@ -15,5 +15,9 @@ xcrun swiftc -O -sdk "$sdk" -parse-as-library -swift-version 6 -target arm64-app
     -o "$app/Contents/MacOS/Optap" \
     $(find "$here/Optap" -name '*.swift')
 
-codesign --force --sign - --identifier dev.optap.Optap "$app"
+# Accessibility permission is tied to the signature. An ad-hoc signature changes on every build, so
+# macOS forgets the permission. A local certificate named "Optap Local Signing" keeps it stable.
+identity=-
+security find-identity -p codesigning | grep -q '"Optap Local Signing"' && identity="Optap Local Signing"
+codesign --force --sign "$identity" --identifier dev.optap.Optap "$app"
 echo "built $app"
