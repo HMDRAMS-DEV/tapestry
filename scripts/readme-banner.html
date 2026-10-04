@@ -3,15 +3,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Optap banner</title>
+<title>Tapestry banner</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #F7F5F3; --ink: #0D0D0D; --muted: #7A7A7A; --accent: #6A48FF; --accent2: #A98CFF; --line: rgba(0,0,0,.06);
+    --bg: #F7F5F3; --ink: #0D0D0D; --muted: #7A7A7A; --accent: #EC4436; --accent2: #FF5FA2; --line: rgba(0,0,0,.06);
     --pad: #FFFFFF; --pad-edge: rgba(0,0,0,.10); --key: #FFFFFF;
   }
   .dark {
-    --bg: #141414; --ink: #FFFFFF; --muted: #9A9A9A; --accent: #8466FF; --accent2: #B9A3FF; --line: rgba(255,255,255,.08);
+    --bg: #141414; --ink: #FFFFFF; --muted: #9A9A9A; --accent: #FF6A55; --accent2: #FF7FB5; --line: rgba(255,255,255,.08);
     --pad: #1F1F22; --pad-edge: rgba(255,255,255,.12); --key: #26262A;
   }
   html, body { margin: 0; background: transparent; }
@@ -30,18 +30,20 @@
 
   .pad {
     position: relative; width: 340px; height: 240px; border-radius: 30px; background: var(--pad);
-    box-shadow: 0 40px 100px rgba(106,72,255,.22), 0 0 0 1.5px var(--pad-edge);
-    display: flex; align-items: center; justify-content: center; gap: 44px;
+    box-shadow: 0 40px 100px rgba(236,68,54,.20), 0 0 0 1.5px var(--pad-edge);
+    display: flex; align-items: center; justify-content: center; gap: 22px;
   }
-  .tip { position: relative; width: 52px; height: 52px; border-radius: 50%;
+  .tip { position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%;
          background: linear-gradient(135deg, var(--accent), var(--accent2)); top: -18px; }
+  .tip:nth-child(2), .tip:nth-child(4) { margin-top: -18px; }
+  .tip:nth-child(3) { margin-top: -26px; }
   .tip::before, .tip::after { content: ""; position: absolute; border-radius: 50%; border: 3px solid var(--accent); }
   .tip::before { inset: -12px; opacity: .28; }
   .tip::after { inset: -22px; opacity: .10; }
 
   .key {
     position: absolute; right: 70px; bottom: 112px; width: 112px; height: 104px; border-radius: 20px; background: var(--key);
-    box-shadow: 0 0 0 1.5px var(--pad-edge), 0 3px 0 var(--pad-edge), 0 20px 50px rgba(106,72,255,.30);
+    box-shadow: 0 0 0 1.5px var(--pad-edge), 0 3px 0 var(--pad-edge), 0 20px 50px rgba(236,68,54,.28);
     color: var(--ink); padding: 14px 16px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;
     transform: translateY(3px);
   }
@@ -52,14 +54,14 @@
 <body>
 <div class="banner">
   <div class="text">
-    <div class="brand"><img id="icon" alt="">Optap</div>
-    <h1>Tap your trackpad.<br>Press Option.</h1>
-    <p>A tiny macOS menu bar app that turns a three&#8209;finger tap into the Option key.</p>
+    <div class="brand"><img id="icon" alt="">Tapestry</div>
+    <h1>Five fingers.<br>Press Return.</h1>
+    <p>A macOS menu bar app that turns trackpad taps, holds, and diagonal swipes into keys, Shortcuts, and apps.</p>
   </div>
   <div class="stage">
     <canvas id="halo" width="1040" height="1280" style="width: 520px; height: 640px"></canvas>
-    <div class="pad"><div class="tip"></div><div class="tip"></div><div class="tip"></div></div>
-    <div class="key"><span class="glyph">⌥</span><span class="name">option</span></div>
+    <div class="pad"><div class="tip"></div><div class="tip"></div><div class="tip"></div><div class="tip"></div><div class="tip"></div></div>
+    <div class="key"><span class="glyph">↩</span><span class="name">return</span></div>
   </div>
 </div>
 <script>
@@ -67,7 +69,7 @@
   if (dark) document.documentElement.classList.add('dark');
   document.getElementById('icon').src = `../docs/icon${dark ? '-dark' : ''}.png`;
 
-  // Pacer's dot ripple, frozen mid-wave, in Optap's violets.
+  // Pacer's dot ripple, frozen mid-wave, in Tapestry's coral and pink.
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));

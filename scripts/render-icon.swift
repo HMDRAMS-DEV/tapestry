@@ -1,13 +1,13 @@
-// Renders Optap's app icon into Optap/AppIcon.iconset, plus light and dark copies for the README.
+// Renders Tapestry's app icon into Tapestry/AppIcon.iconset, plus light and dark copies for the README.
 //
 //     swift scripts/render-icon.swift
 //
-// The mark is the gesture itself: a trackpad with three fingertips tapping it, and the Option
-// glyph underneath. Same tile, grid, and shadow as Pacer and Keeper.
+// The mark is a small weave: three ink warp threads and three warm weft threads, crossing over and
+// under like cloth. It also reads as fingers on a pad. Same tile, grid, and shadow as Pacer and Keeper.
 
 import AppKit
 
-let output = URL(fileURLWithPath: "Optap/AppIcon.iconset")
+let output = URL(fileURLWithPath: "Tapestry/AppIcon.iconset")
 let docs = URL(fileURLWithPath: "docs")
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
@@ -38,6 +38,7 @@ func draw(in context: CGContext, size: CGFloat, dark: Bool) {
     context.drawLinearGradient(dark ? gradient([color(0x2A2A2E), color(0x0E0E10)]) : gradient([color(0xFFFFFF), color(0xEEEAE5)]), start: CGPoint(x: 512, y: 924), end: CGPoint(x: 512, y: 100), options: [])
     context.restoreGState()
 
+    // A hairline inner edge, so the tile holds its shape on a desktop of the same shade.
     context.saveGState()
     context.addPath(CGPath(roundedRect: tile.insetBy(dx: 1.5, dy: 1.5), cornerWidth: 183, cornerHeight: 183, transform: nil))
     context.setStrokeColor(dark ? color(0xFFFFFF, 0.08) : color(0x000000, 0.06))
@@ -45,41 +46,54 @@ func draw(in context: CGContext, size: CGFloat, dark: Bool) {
     context.strokePath()
     context.restoreGState()
 
-    // The trackpad: a wide outlined rounded rectangle.
-    let pad = CGRect(x: 232, y: 290, width: 560, height: 444)
-    context.addPath(CGPath(roundedRect: pad, cornerWidth: 64, cornerHeight: 64, transform: nil))
-    context.setStrokeColor(dark ? color(0xFFFFFF, 0.2) : color(0x0D0D0D, 0.16))
-    context.setLineWidth(13)
-    context.strokePath()
+    // The weave. Each thread is drawn once, clipped so it stops a little short of every thread
+    // that crosses over it. Crossings alternate like a checkerboard.
+    let pitch: CGFloat = 150, width: CGFloat = 88, reach: CGFloat = 230, gap: CGFloat = 12
+    let offsets: [CGFloat] = [-pitch, 0, pitch]
+    let ink = dark ? color(0xFFFFFF) : color(0x0D0D0D)
+    // Sunset weft, top to bottom: magenta, coral, amber.
+    let weft: [(CGColor, CGColor)] = [
+        (color(0xD9367A), color(0xFF5FA2)),
+        (color(0xF0443C), color(0xFF7A59)),
+        (color(0xF58A1F), color(0xFFC14D)),
+    ]
+    func weftOver(_ row: Int, _ column: Int) -> Bool { (row + column) % 2 == 1 }
 
-    // Three fingertips in the upper half, each with a faint tap ripple.
-    let diameter: CGFloat = 88, pitch: CGFloat = 152
-    for i in -1...1 {
-        let center = CGPoint(x: 512 + pitch * CGFloat(i), y: 610)
-        let rect = CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter)
-        context.setStrokeColor(color(0x7A5CFF, 0.22))
-        context.setLineWidth(8)
-        context.strokeEllipse(in: rect.insetBy(dx: -15, dy: -15))
+    /// Clips out the given gaps, then strokes one round-capped thread from `a` to `b`.
+    func thread(from a: CGPoint, to b: CGPoint, gaps: [CGRect], fill: (CGPoint, CGPoint) -> Void) {
         context.saveGState()
-        context.addEllipse(in: rect)
+        context.addRect(CGRect(x: 0, y: 0, width: 1024, height: 1024))
+        gaps.forEach { context.addRect($0) }
+        context.clip(using: .evenOdd)
+        context.setLineWidth(width)
+        context.setLineCap(.round)
+        context.move(to: a)
+        context.addLine(to: b)
+        context.replacePathWithStrokedPath()
         context.clip()
-        context.drawLinearGradient(gradient([color(0x6A48FF), color(0xA98CFF)]), start: CGPoint(x: rect.minX, y: rect.minY), end: CGPoint(x: rect.maxX, y: rect.maxY), options: [])
+        fill(a, b)
         context.restoreGState()
     }
 
-    // The Option glyph, drawn as strokes in the lower half.
-    context.setStrokeColor(dark ? color(0xFFFFFF) : color(0x0D0D0D))
-    context.setLineWidth(26)
-    context.setLineCap(.round)
-    context.setLineJoin(.round)
-    let top: CGFloat = 462, bottom: CGFloat = 362
-    context.move(to: CGPoint(x: 396, y: top))
-    context.addLine(to: CGPoint(x: 466, y: top))
-    context.addLine(to: CGPoint(x: 558, y: bottom))
-    context.addLine(to: CGPoint(x: 628, y: bottom))
-    context.move(to: CGPoint(x: 552, y: top))
-    context.addLine(to: CGPoint(x: 628, y: top))
-    context.strokePath()
+    for (row, dy) in offsets.enumerated() {
+        let y = 512 - dy
+        let gaps = offsets.indices.filter { !weftOver(row, $0) }.map { column in
+            CGRect(x: 512 + offsets[column] - width / 2 - gap, y: y - width, width: width + gap * 2, height: width * 2)
+        }
+        thread(from: CGPoint(x: 512 - reach, y: y), to: CGPoint(x: 512 + reach, y: y), gaps: gaps) { a, b in
+            context.drawLinearGradient(gradient([weft[row].0, weft[row].1]), start: a, end: b, options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+        }
+    }
+    for (column, dx) in offsets.enumerated() {
+        let x = 512 + dx
+        let gaps = offsets.indices.filter { weftOver($0, column) }.map { row in
+            CGRect(x: x - width, y: 512 - offsets[row] - width / 2 - gap, width: width * 2, height: width + gap * 2)
+        }
+        thread(from: CGPoint(x: x, y: 512 - reach), to: CGPoint(x: x, y: 512 + reach), gaps: gaps) { _, _ in
+            context.setFillColor(ink)
+            context.fill(CGRect(x: 0, y: 0, width: 1024, height: 1024))
+        }
+    }
 }
 
 func png(pixels: Int, dark: Bool = false) -> Data {
