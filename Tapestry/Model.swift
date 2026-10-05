@@ -48,10 +48,17 @@ enum Motion: String, Codable, CaseIterable, Identifiable {
     }
 
     /// The diagonal swipe a movement matches. Straight swipes are left to macOS.
+    /// A diagonal must be deliberate: long (about a third of the trackpad's height, roughly 3 cm)
+    /// and within 12° of a true diagonal, so a quick swipe that drifts 20-30° off horizontal
+    /// or vertical does not count.
     static func swipe(_ delta: SIMD2<Float>) -> Motion? {
-        guard simd_length(delta) >= 0.12 else { return nil }
+        let minLength: Float = 0.3
+        let maxAngleError: Float = 12
+        guard simd_length(delta) >= minLength else { return nil }
         let degrees = atan2(delta.y, delta.x) * 180 / .pi
-        switch Int((degrees / 45).rounded()) {
+        let octant = (degrees / 45).rounded()
+        guard abs(degrees - octant * 45) <= maxAngleError else { return nil }
+        switch Int(octant) {
         case 1: return .upRight
         case 3: return .upLeft
         case -1: return .downRight

@@ -1,7 +1,11 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.png">
-  <img src="docs/banner-light.png" alt="Tapestry: five fingers, press Return. A macOS menu bar app that turns trackpad taps, holds, and diagonal swipes into keys, Shortcuts, and apps.">
+  <img src="docs/banner-light.png" alt="Tapestry: tap, hold, or swipe. Run anything. A macOS menu bar app that turns trackpad taps, holds, and diagonal swipes into keys, Shortcuts, and apps.">
 </picture>
+
+<p align="center">
+  <a href="https://github.com/HMDRAMS-DEV/tapestry/releases/latest"><b>Download for macOS</b></a>
+</p>
 
 Tapestry turns trackpad gestures into actions, without BetterTouchTool. Tap five fingers to press Return, hold three to keep Option down for push-to-talk, or swipe four fingers up-right to run a Shortcut.
 
@@ -12,7 +16,7 @@ Each gesture is a finger count and a motion:
 - **Fingers:** three, four, or five.
 - **Tap:** touch and lift within 0.3 seconds without moving.
 - **Hold:** rest the fingers for a moment. A key stays down until you lift.
-- **Diagonal swipe:** up-right, up-left, down-right, or down-left, within a second. Straight swipes are left to macOS.
+- **Diagonal swipe:** up-right, up-left, down-right, or down-left, within a second. Make it deliberate: travel about a third of the trackpad's height and stay within 12° of a true diagonal, like corner to corner. Straight and slightly angled swipes are left to macOS.
 
 ## Actions
 
@@ -33,6 +37,10 @@ Each gesture is a finger count and a motion:
 Tapestry reads raw touches from Apple's private `MultitouchSupport` framework, the same one BetterTouchTool uses. For each touch it tracks the most fingers down, how long they stayed, and how far their center moved. When that matches a gesture, it posts key events with `CGEvent`, runs `shortcuts run`, or opens the app or link with `NSWorkspace`. Tapestry has no network access and no analytics. It stores only your gestures.
 
 Because the framework is private, a future macOS update could break it.
+
+## Install
+
+Download `Tapestry.zip` from the [latest release](https://github.com/HMDRAMS-DEV/tapestry/releases/latest), unzip it, and move Tapestry to Applications. It is signed and notarized.
 
 ## Build
 
