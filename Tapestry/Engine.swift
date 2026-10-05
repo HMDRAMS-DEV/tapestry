@@ -62,8 +62,11 @@ enum Performer {
 final class Detector {
     static let shared = Detector()
 
-    private let maxTapDuration = 0.3     // seconds from first touch to last lift
-    private let holdDelay = 0.18         // seconds of resting fingers before a hold starts
+    /// A tap is a short, still press. Quicker touches are usually the start of a drag or swipe.
+    private let minTapDuration = 0.2     // seconds from first touch to last lift
+    private let maxTapDuration = 0.6
+    /// Above `minTapDuration`, so a tap still fits before a hold on the same finger count takes over.
+    private let holdDelay = 0.35         // seconds of resting fingers before a hold starts
     private let maxSwipeDuration = 1.0   // slower movements are drags, not swipes
     private let moveTolerance: Float = 0.03  // normalized trackpad units
     /// Normalized x spans the trackpad's width, which is about 1.5 times its height. Scaling x by
@@ -116,7 +119,7 @@ final class Detector {
 
         let motion: Motion?
         if !moved {
-            motion = duration <= maxTapDuration ? .tap : nil
+            motion = (minTapDuration...maxTapDuration).contains(duration) ? .tap : nil
         } else {
             motion = duration <= maxSwipeDuration ? Motion.swipe([delta.x * aspect, delta.y]) : nil
         }
