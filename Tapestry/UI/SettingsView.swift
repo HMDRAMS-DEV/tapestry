@@ -17,6 +17,23 @@ struct SettingsView: View {
             }
 
             Section {
+                @Bindable var store = store
+                LabeledContent("Tap press time") {
+                    HStack {
+                        Slider(value: $store.minTapDuration, in: 0...0.4, step: 0.02)
+                        Text("\(Int((store.minTapDuration * 1000).rounded())) ms")
+                            .monospacedDigit()
+                            .frame(width: 52, alignment: .trailing)
+                    }
+                }
+            } header: {
+                Text("Gestures")
+            } footer: {
+                Text("How long fingers must rest before a lift counts as a tap. Lower feels quicker; higher ignores more drags and swipes. Holds start 150 ms after this.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
                 LabeledContent("Accessibility") {
                     if store.trusted {
                         Label("Allowed", systemImage: "checkmark.circle.fill")
@@ -42,7 +59,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .toggleStyle(.switch)
         .tint(Theme.accent)
-        .frame(width: 440, height: 360)
+        .frame(width: 440, height: 480)
         .onAppear { store.refreshTrust() }
     }
 }

@@ -6,11 +6,14 @@ import simd
 // MARK: - Gestures
 
 enum Motion: String, Codable, CaseIterable, Identifiable {
-    case tap, hold, upRight, upLeft, downRight, downLeft
+    case tap, hold, upRight, upLeft, downRight, downLeft, up, down, left, right
 
     var id: String { rawValue }
 
     var isSwipe: Bool { direction != nil }
+
+    /// Swipes clockwise from up, for the direction picker.
+    static let directions: [Motion] = [.up, .upRight, .right, .downRight, .down, .downLeft, .left, .upLeft]
 
     /// Short label for the gesture picker.
     var short: String {
@@ -21,6 +24,10 @@ enum Motion: String, Codable, CaseIterable, Identifiable {
         case .upLeft: "↖"
         case .downRight: "↘"
         case .downLeft: "↙"
+        case .up: "↑"
+        case .down: "↓"
+        case .left: "←"
+        case .right: "→"
         }
     }
 
@@ -32,6 +39,10 @@ enum Motion: String, Codable, CaseIterable, Identifiable {
         case .upLeft: "swipe up-left"
         case .downRight: "swipe down-right"
         case .downLeft: "swipe down-left"
+        case .up: "swipe up"
+        case .down: "swipe down"
+        case .left: "swipe left"
+        case .right: "swipe right"
         }
     }
 
@@ -44,24 +55,32 @@ enum Motion: String, Codable, CaseIterable, Identifiable {
         case .upLeft: return [-d, d]
         case .downRight: return [d, -d]
         case .downLeft: return [-d, -d]
+        case .up: return [0, 1]
+        case .down: return [0, -1]
+        case .left: return [-1, 0]
+        case .right: return [1, 0]
         }
     }
 
-    /// The diagonal swipe a movement matches. Straight swipes are left to macOS.
-    /// A diagonal must be deliberate: long (about a third of the trackpad's height, roughly 3 cm)
-    /// and within 12° of a true diagonal, so a quick swipe that drifts 20-30° off horizontal
-    /// or vertical does not count.
+    /// The swipe a movement matches. A swipe must be deliberate: long (about a third of the
+    /// trackpad's height, roughly 3 cm) and close to its direction. Diagonals must be within 12° of a
+    /// true diagonal, so a quick straight swipe that drifts 20-30° does not count as one. Straight
+    /// swipes may drift 20°. Movements between the two match nothing.
     static func swipe(_ delta: SIMD2<Float>) -> Motion? {
         let minLength: Float = 0.3
-        let maxAngleError: Float = 12
         guard simd_length(delta) >= minLength else { return nil }
         let degrees = atan2(delta.y, delta.x) * 180 / .pi
-        let octant = (degrees / 45).rounded()
-        guard abs(degrees - octant * 45) <= maxAngleError else { return nil }
-        switch Int(octant) {
+        let octant = Int((degrees / 45).rounded())
+        let maxAngleError: Float = octant.isMultiple(of: 2) ? 20 : 12
+        guard abs(degrees - Float(octant) * 45) <= maxAngleError else { return nil }
+        switch octant {
+        case 0: return .right
         case 1: return .upRight
+        case 2: return .up
         case 3: return .upLeft
+        case 4, -4: return .left
         case -1: return .downRight
+        case -2: return .down
         case -3: return .downLeft
         default: return nil
         }
@@ -203,6 +222,7 @@ enum WindowID {
 enum Keys {
     static let mappings = "mappings"
     static let welcomed = "welcomed"
+    static let minTapDuration = "minTapDuration"
 }
 
 @MainActor
@@ -219,11 +239,23 @@ final class Store {
         didSet { save() }
     }
 
+    /// Seconds the fingers must rest before a lift counts as a tap. Quicker touches are usually the
+    /// start of a drag or swipe.
+    var minTapDuration: Double = UserDefaults.standard.object(forKey: Keys.minTapDuration) as? Double ?? 0.2 {
+        didSet { UserDefaults.standard.set(minTapDuration, forKey: Keys.minTapDuration) }
+    }
+
     /// The last gesture that ran an action. The menu bar glyph lights up when it changes.
     private(set) var lastFired: Fired?
     private(set) var trusted = AXIsProcessTrusted()
     /// The card the main window opens on.
     var focus: Mapping.ID?
+    /// The mapping waiting for a gesture on the trackpad. While set, gestures teach instead of run.
+    var teaching: Mapping.ID? {
+        didSet { teachHint = nil }
+    }
+    /// Why the last gesture did not teach, shown under the Teach button.
+    var teachHint: String?
 
     private init() {
         if let data = UserDefaults.standard.data(forKey: Keys.mappings),
@@ -260,6 +292,13 @@ final class Store {
 
     func remove(_ id: Mapping.ID) {
         mappings.removeAll { $0.id == id }
+    }
+
+    /// Sets the taught mapping's gesture and ends teaching.
+    func learn(_ trigger: Trigger) {
+        guard let id = teaching, let i = mappings.firstIndex(where: { $0.id == id }) else { return }
+        mappings[i].trigger = trigger
+        teaching = nil
     }
 
     func didFire(_ mapping: Mapping) {

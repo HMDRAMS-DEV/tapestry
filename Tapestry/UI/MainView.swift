@@ -128,6 +128,7 @@ struct MappingEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            row("Teach") { TeachButton(id: mapping.id) }
             row("Fingers") {
                 Picker("Fingers", selection: $mapping.trigger.fingers) {
                     ForEach(Trigger.fingerChoices, id: \.self) { Text("\($0)").tag($0) }
@@ -135,10 +136,20 @@ struct MappingEditor: View {
                 .fixedSize()
             }
             row("Gesture") {
-                Picker("Gesture", selection: $mapping.trigger.motion) {
-                    ForEach(Motion.allCases) { Text($0.short).tag($0) }
+                Picker("Gesture", selection: style) {
+                    Text("Tap").tag(Motion.tap)
+                    Text("Hold").tag(Motion.hold)
+                    Text("Swipe").tag(Motion.upRight)
                 }
                 .fixedSize()
+            }
+            if mapping.trigger.motion.isSwipe {
+                row("Direction") {
+                    Picker("Direction", selection: $mapping.trigger.motion) {
+                        ForEach(Motion.directions) { Text($0.short).tag($0) }
+                    }
+                    .fixedSize()
+                }
             }
             row("Action") {
                 Picker("Action", selection: kind) {
@@ -167,6 +178,7 @@ struct MappingEditor: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .onDisappear { if store.teaching == mapping.id { store.teaching = nil } }
         .task(id: mapping.action.kind) {
             if mapping.action.kind == .shortcut, shortcuts.isEmpty { shortcuts = await Shortcuts.names() }
         }
@@ -201,6 +213,17 @@ struct MappingEditor: View {
         }
     }
 
+    /// Tap, hold, or swipe. Every direction shows as Swipe, tagged with the default direction.
+    private var style: Binding<Motion> {
+        Binding(
+            get: { mapping.trigger.motion.isSwipe ? .upRight : mapping.trigger.motion },
+            set: { motion in
+                guard !(motion.isSwipe && mapping.trigger.motion.isSwipe) else { return }
+                mapping.trigger.motion = motion
+            }
+        )
+    }
+
     private var kind: Binding<Action.Kind> {
         Binding(
             get: { mapping.action.kind },
@@ -225,7 +248,9 @@ struct MappingEditor: View {
         if trigger == Trigger(fingers: 3, motion: .tap) {
             notes.append("If a three-finger tap also looks things up, turn off Look up & data detectors in System Settings > Trackpad.")
         }
-        if trigger.motion.isSwipe, trigger.fingers < 5 {
+        if trigger.motion.isSwipe, trigger.fingers < 5, [.up, .down, .left, .right].contains(trigger.motion) {
+            notes.append("macOS may use \(trigger.fingers)-finger straight swipes for Spaces, Mission Control, and App Exposé, and both will run. Turn those off or move them to the other finger count in System Settings > Trackpad > More Gestures.")
+        } else if trigger.motion.isSwipe, trigger.fingers < 5 {
             notes.append("macOS may use \(trigger.fingers)-finger swipes for Spaces and Mission Control, and both will run. Diagonals mostly avoid them; if not, move those to the other finger count in System Settings > Trackpad > More Gestures.")
         }
         if trigger.fingers == 3, trigger.motion != .tap {
@@ -235,6 +260,40 @@ struct MappingEditor: View {
             notes.append("Holds keep keys down. Other actions run once when the hold starts.")
         }
         return notes
+    }
+}
+
+/// Sets a gesture by doing it. Click, then tap, hold, or swipe on the trackpad.
+struct TeachButton: View {
+    @Environment(Store.self) private var store
+    let id: Mapping.ID
+
+    var body: some View {
+        let teaching = store.teaching == id
+        HStack(spacing: 10) {
+            Button {
+                store.teaching = teaching ? nil : id
+            } label: {
+                Text(teaching ? "Do the gesture…" : "Record Gesture")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(teaching ? Theme.accent : Theme.ink)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .frame(minWidth: 120)
+                    .background(Theme.quietWash, in: Capsule())
+                    .overlay(Capsule().strokeBorder(teaching ? Theme.accent : .clear, lineWidth: 1.5))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help(teaching ? "Click to cancel" : "Click, then do the gesture on the trackpad")
+
+            if teaching {
+                Text(store.teachHint ?? "Tap, hold, or swipe with 3 to 5 fingers. Click to cancel.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(store.teachHint == nil ? Theme.muted : Theme.warn)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

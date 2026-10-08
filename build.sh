@@ -16,8 +16,14 @@ xcrun swiftc -O -sdk "$sdk" -parse-as-library -swift-version 6 -target arm64-app
     $(find "$here/Tapestry" -name '*.swift')
 
 # Accessibility permission is tied to the signature. An ad-hoc signature changes on every build, so
-# macOS forgets the permission. A local certificate named "Tapestry Local Signing" keeps it stable.
+# macOS forgets the permission. The Developer ID matches release builds, so both share one grant.
+# Without it, a local certificate named "Tapestry Local Signing" keeps the signature stable.
 identity=-
-security find-identity -p codesigning | grep -q '"Tapestry Local Signing"' && identity="Tapestry Local Signing"
+identities="$(security find-identity -p codesigning)"
+if grep -q '"Developer ID Application: HMDFV Inc. (8Z6WRF99H5)"' <<<"$identities"; then
+    identity="Developer ID Application: HMDFV Inc. (8Z6WRF99H5)"
+elif grep -q '"Tapestry Local Signing"' <<<"$identities"; then
+    identity="Tapestry Local Signing"
+fi
 codesign --force --sign "$identity" --identifier dev.tapestry.Tapestry "$app"
 echo "built $app"

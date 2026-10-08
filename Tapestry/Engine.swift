@@ -62,11 +62,10 @@ enum Performer {
 final class Detector {
     static let shared = Detector()
 
-    /// A tap is a short, still press. Quicker touches are usually the start of a drag or swipe.
-    private let minTapDuration = 0.2     // seconds from first touch to last lift
-    private let maxTapDuration = 0.6
-    /// Above `minTapDuration`, so a tap still fits before a hold on the same finger count takes over.
-    private let holdDelay = 0.35         // seconds of resting fingers before a hold starts
+    private let maxTapDuration = 0.6     // seconds from first touch to last lift
+    /// Seconds of resting fingers before a hold starts. Above the minimum tap, so a tap still fits
+    /// before a hold on the same finger count takes over.
+    private var holdDelay: Double { Store.shared.minTapDuration + 0.15 }
     private let maxSwipeDuration = 1.0   // slower movements are drags, not swipes
     private let moveTolerance: Float = 0.03  // normalized trackpad units
     /// Normalized x spans the trackpad's width, which is about 1.5 times its height. Scaling x by
@@ -98,7 +97,7 @@ final class Detector {
             if simd_distance(centroid, anchor) > moveTolerance { moved = true }
         }
 
-        if holding == nil, !held, n == maxFingers, !moved, let reachedAt, t - reachedAt >= holdDelay,
+        if store.teaching == nil, holding == nil, !held, n == maxFingers, !moved, let reachedAt, t - reachedAt >= holdDelay,
            let mapping = store.mapping(for: Trigger(fingers: n, motion: .hold)) {
             log.info("hold matched: \(mapping.trigger.title, privacy: .public)")
             holding = mapping
@@ -115,11 +114,15 @@ final class Detector {
         let duration = t - start
         let delta = (last ?? .zero) - (anchor ?? .zero)
         log.info("touch ended: fingers=\(self.maxFingers) duration=\(duration, format: .fixed(precision: 2)) dx=\(delta.x, format: .fixed(precision: 3)) dy=\(delta.y, format: .fixed(precision: 3))")
+        if store.teaching != nil {
+            teach(duration: duration, delta: delta)
+            return
+        }
         guard !held else { return }
 
         let motion: Motion?
         if !moved {
-            motion = (minTapDuration...maxTapDuration).contains(duration) ? .tap : nil
+            motion = (store.minTapDuration...maxTapDuration).contains(duration) ? .tap : nil
         } else {
             motion = duration <= maxSwipeDuration ? Motion.swipe([delta.x * aspect, delta.y]) : nil
         }
@@ -127,6 +130,28 @@ final class Detector {
         log.info("matched: \(mapping.trigger.title, privacy: .public) (accessibility=\(AXIsProcessTrusted()))")
         Performer.run(mapping.action)
         store.didFire(mapping)
+    }
+
+    /// Turns the gesture just made into the taught mapping's trigger, or says why it did not count.
+    /// A still rest past the longest tap teaches a hold.
+    private func teach(duration: Double, delta: SIMD2<Float>) {
+        let store = Store.shared
+        guard Trigger.fingerChoices.contains(maxFingers) else { return }  // clicks and scrolls
+        let motion: Motion?
+        if !moved {
+            motion = duration > maxTapDuration ? .hold : duration >= store.minTapDuration ? .tap : nil
+            if motion == nil { store.teachHint = "Too quick for a tap. Rest the fingers a moment, then lift." }
+        } else if duration > maxSwipeDuration {
+            motion = nil
+            store.teachHint = "Too slow for a swipe. Finish within a second."
+        } else {
+            motion = Motion.swipe([delta.x * aspect, delta.y])
+            if motion == nil { store.teachHint = "Swipe farther, about a third of the trackpad, straight or on a true diagonal." }
+        }
+        guard let motion else { return }
+        let trigger = Trigger(fingers: maxFingers, motion: motion)
+        log.info("taught: \(trigger.title, privacy: .public)")
+        store.learn(trigger)
     }
 
     func reset() {

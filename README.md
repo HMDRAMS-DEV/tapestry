@@ -14,9 +14,11 @@ Tapestry turns trackpad gestures into actions, without BetterTouchTool. Tap five
 Each gesture is a finger count and a motion:
 
 - **Fingers:** three, four, or five.
-- **Tap:** rest the fingers for 0.2 to 0.6 seconds without moving, then lift. Quicker touches are ignored, so drags and swipes don't trigger taps.
+- **Tap:** rest the fingers without moving, then lift within 0.6 seconds. Quicker touches than the tap press time (Settings, 200 ms by default) are ignored, so drags and swipes don't trigger taps.
 - **Hold:** rest the fingers for a moment. A key stays down until you lift.
-- **Diagonal swipe:** up-right, up-left, down-right, or down-left, within a second. Make it deliberate: travel about a third of the trackpad's height and stay within 12° of a true diagonal, like corner to corner. Straight and slightly angled swipes are left to macOS.
+- **Swipe:** up, down, left, right, or diagonal, within a second. Make it deliberate: travel about a third of the trackpad's height. Straight swipes must stay within 20° of their direction, diagonals within 12° of a true diagonal, like corner to corner. Movements in between are left to macOS.
+
+To set a gesture by doing it, open its card, click **Record Gesture**, then tap, hold, or swipe on the trackpad. Tapestry fills in the fingers and motion, or says why the gesture didn't count. Gestures don't run their actions while recording.
 
 ## Actions
 
