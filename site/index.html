@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tapestry: lightweight trackpad gestures for macOS</title>
+<meta name="description" content="Lightweight trackpad gestures for macOS. Tap, hold, or swipe to press a key, run a Shortcut, or open an app.">
+<meta property="og:title" content="Tapestry">
+<meta property="og:description" content="Lightweight trackpad gestures for macOS.">
+<meta property="og:image" content="/assets/poster.jpg">
+<link rel="icon" href="/assets/favicon.png" media="(prefers-color-scheme: light)">
+<link rel="icon" href="/assets/favicon-dark.png" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFFFF; --panel: #F2F1EF; --pad: #FAFAFA; --ink: #000000; --text: #333333; --muted: #7A7A7A; --faint: #B5B5B5;
+    --line: #E2E2E2; --button: #000000; --button-ink: #FFFFFF; --finger: rgba(0,0,0,.16);
+    --accent: #EC4436; --pink: #E0457B; --amber: #F28C28;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141414; --panel: #1C1C1C; --pad: #262626; --ink: #FFFFFF; --text: #D6D6D6; --muted: #9A9A9A; --faint: #5A5A5A;
+      --line: #2C2C2C; --button: #FFFFFF; --button-ink: #000000; --finger: rgba(255,255,255,.22);
+      --accent: #FF6A55; --pink: #FF6FA0; --amber: #FFB547;
+      color-scheme: dark;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  #demo, #how { scroll-margin-top: 40px; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  img, video { display: block; }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--accent); color: #fff; }
+
+  /* Nav */
+  .nav { display: flex; justify-content: space-between; align-items: center; padding: 25px 46px 0; font-size: 16px; line-height: 20px; }
+  .nav-brand { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 500; transition: opacity .15s ease; }
+  .nav-brand img { width: 24px; height: 24px; }
+  .nav-brand picture, .footer-brand picture { display: contents; }
+  .nav-brand:hover { opacity: .6; }
+  .nav-source { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--muted); transition: color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease); }
+  .nav-source svg { width: 20px; height: 20px; }
+  .nav-source:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); transform: rotate(-8deg) scale(1.06); }
+
+  /* Hero */
+  .hero { text-align: center; padding-top: 112px; }
+  .hero h1 { max-width: 900px; margin: 0 auto; font-size: 72px; line-height: 76px; font-weight: 700; letter-spacing: -0.025em; }
+  .hero .sub { max-width: 640px; margin: 20px auto 0; font-size: 24px; line-height: 32px; color: var(--muted); letter-spacing: -0.005em; }
+  .buttons { display: flex; justify-content: center; gap: 14px; margin-top: 55px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 53px; border-radius: 999px;
+    font-size: 15px; font-weight: 500; white-space: nowrap; transition: transform .2s var(--ease), background .2s var(--ease);
+  }
+  .btn:hover { transform: scale(1.03); }
+  .btn:active { transform: scale(.97); }
+  .btn svg { width: 18px; height: 18px; }
+  .btn-get { width: 200px; background: var(--button); color: var(--button-ink); }
+  @media (hover: hover) { .btn-get:hover { background: var(--accent); color: #fff; } }
+  .btn-secondary { width: 195px; background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); }
+  .req { margin: 18px 0 0; font-size: 14px; color: var(--muted); }
+
+  /* Demo video */
+  .demo { max-width: 1180px; margin: 90px auto 0; padding: 0 46px; }
+  .frame { position: relative; border-radius: 24px; overflow: hidden; background: #fff; box-shadow: 0 30px 80px rgba(0,0,0,.14), 0 0 0 1px rgba(0,0,0,.06); }
+  .frame video { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+  .sound {
+    position: absolute; right: 18px; bottom: 18px; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px;
+    border: 0; border-radius: 999px; background: rgba(0,0,0,.72); color: #fff; font: 500 14px 'Inter', sans-serif; cursor: pointer;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform .2s var(--ease), background .2s var(--ease);
+  }
+  .sound:hover { transform: scale(1.04); background: rgba(0,0,0,.85); }
+  .sound svg { width: 16px; height: 16px; }
+
+  /* Points */
+  .points { max-width: 1180px; margin: 150px auto 0; padding: 0 46px; display: grid; gap: 140px; }
+  .point { display: grid; grid-template-columns: 1.25fr 1fr; gap: 80px; align-items: center; }
+  .point:nth-child(even) .visual { order: 2; }
+  .visual { position: relative; height: 440px; border-radius: 28px; background: var(--panel); overflow: hidden; display: grid; place-items: center; }
+  .label { margin: 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .point h2 { margin: 14px 0 0; font-size: 40px; line-height: 44px; font-weight: 700; letter-spacing: -0.025em; }
+  .point p { margin: 16px 0 0; font-size: 18px; line-height: 26px; color: var(--muted); max-width: 400px; }
+  .point p a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .copy > * { opacity: 0; transform: translateY(14px); filter: blur(6px); transition: all .9s var(--ease); }
+  .copy > :nth-child(2) { transition-delay: .08s; }
+  .copy > :nth-child(3) { transition-delay: .16s; }
+  .point.seen .copy > * { opacity: 1; transform: none; filter: none; }
+
+  /* A small trackpad, with fingers that tap or swipe, and the key it sends. */
+  .stage { position: relative; display: grid; justify-items: center; gap: 26px; }
+  .result { height: 64px; display: flex; gap: 10px; align-items: center; }
+  .key {
+    position: relative; width: 64px; height: 64px; border-radius: 12px; background: var(--bg);
+    box-shadow: inset 0 0 0 1.5px var(--line), 0 4px 0 var(--line), 0 10px 20px rgba(0,0,0,.06);
+    display: grid; place-items: center; font-size: 26px; font-weight: 500; color: var(--ink);
+  }
+  .key.wide { width: 116px; }
+  .key small { position: absolute; left: 10px; bottom: 7px; font-size: 12px; color: var(--muted); }
+  .key .g { position: absolute; right: 10px; top: 6px; font-size: 20px; }
+  .pill { height: 50px; padding: 0 20px; border-radius: 25px; background: var(--bg); display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600;
+    box-shadow: inset 0 0 0 1.5px var(--line), 0 10px 20px rgba(0,0,0,.06); }
+  .pill span { color: var(--muted); font-weight: 500; }
+  .tp { position: relative; width: 360px; height: 230px; border-radius: 22px; background: var(--pad);
+    box-shadow: inset 0 0 0 1.5px var(--line), 0 24px 40px -24px rgba(0,0,0,.2); }
+  .tp svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .hand { position: absolute; left: 50%; top: 50%; }
+  .f { position: absolute; width: 44px; height: 44px; margin: -22px; border-radius: 50%; background: var(--finger); }
+  .f::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; }
+
+  .loop .result { opacity: 0; }
+  .loop .f { opacity: 0; }
+  .point.seen .loop .result { animation: result 3.2s var(--ease) infinite; }
+  .point.seen .tap .f { animation: touch 3.2s var(--ease) infinite; }
+  .point.seen .tap .f::after { animation: ripple 3.2s ease-out infinite; }
+  .point.seen .swipe .f { animation: slide 3.2s cubic-bezier(.65,0,.35,1) infinite; }
+  .point.seen .swipe .cone { animation: cone 3.2s ease infinite; }
+  .swipe .cone { opacity: 0; }
+  @keyframes touch {
+    0%, 18% { opacity: 0; transform: scale(1.3); }
+    24%, 40% { opacity: 1; transform: scale(1); }
+    50%, 100% { opacity: 0; transform: scale(1.1); }
+  }
+  @keyframes ripple {
+    0%, 41% { opacity: 0; transform: scale(1); }
+    43% { opacity: .8; }
+    68%, 100% { opacity: 0; transform: scale(2.1); }
+  }
+  @keyframes slide {
+    0%, 14% { opacity: 0; transform: translate(var(--x0), var(--y0)) scale(1.3); }
+    20%, 26% { opacity: 1; transform: translate(var(--x0), var(--y0)) scale(1); }
+    46% { opacity: 1; transform: translate(var(--x1), var(--y1)) scale(1); }
+    56%, 100% { opacity: 0; transform: translate(var(--x1), var(--y1)) scale(1); }
+  }
+  @keyframes cone { 0%, 12% { opacity: 0; } 22%, 56% { opacity: 1; } 70%, 100% { opacity: 0; } }
+  @keyframes result {
+    0%, 42% { opacity: 0; transform: translateY(10px) scale(.92); }
+    48% { opacity: 1; transform: none; }
+    52% { transform: translateY(4px); }
+    58% { transform: none; }
+    88% { opacity: 1; }
+    96%, 100% { opacity: 0; }
+  }
+
+  /* Footer */
+  .footer { display: flex; align-items: center; justify-content: space-between; max-width: 1440px; margin: 0 auto; padding: 160px 70px 110px 65px; }
+  .footer-brand { display: flex; align-items: center; gap: 20px; }
+  .footer-brand img { width: 79px; height: 79px; }
+  .footer-brand span { font-size: 30px; line-height: 36px; font-weight: 500; letter-spacing: -0.01em; }
+  .footer-brand small { display: block; margin-top: 4px; font-size: 14px; color: var(--muted); }
+  .footer .buttons { margin-top: 0; }
+  .legal { margin: 0; padding: 10px 20px; font-size: 12px; line-height: 16px; color: var(--faint); border-top: 1px dotted var(--line); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+    .copy > * { opacity: 1 !important; transform: none !important; filter: none !important; }
+    .loop .result, .loop .f, .swipe .cone { opacity: 1 !important; }
+    .swipe .f { transform: translate(var(--x1), var(--y1)) !important; }
+  }
+  @media (max-width: 900px) {
+    .nav { padding: 20px 16px; }
+    .hero { padding-top: 56px; }
+    .hero h1 { font-size: 44px; line-height: 48px; padding: 0 16px; }
+    .hero .sub { font-size: 20px; line-height: 26px; padding: 0 16px; }
+    .buttons { flex-direction: column; align-items: center; gap: 8px; margin-top: 36px; }
+    .btn { height: 45px; font-size: 14px; }
+    .btn-get, .btn-secondary { width: 190px; }
+    .demo { margin-top: 56px; padding: 0 16px; }
+    .frame { border-radius: 14px; }
+    .sound { right: 10px; bottom: 10px; height: 34px; padding: 0 12px; font-size: 13px; }
+    .points { margin-top: 100px; padding: 0 16px; gap: 80px; }
+    .point { grid-template-columns: 1fr; gap: 28px; }
+    .point:nth-child(even) .visual { order: 0; }
+    .visual { height: 360px; }
+    .stage { transform: scale(.8); }
+    .point h2 { font-size: 32px; line-height: 36px; }
+    .footer { flex-direction: column; gap: 32px; padding: 100px 16px 72px; }
+  }
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav-brand" href="/"><picture><source srcset="/assets/icon-dark.png" media="(prefers-color-scheme: dark)"><img src="/assets/icon.png" alt=""></picture>Tapestry</a>
+    <a class="nav-source" href="https://github.com/HMDRAMS-DEV/tapestry" aria-label="Tapestry on GitHub" title="Source on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  </nav>
+
+  <header class="hero">
+    <h1>Lightweight trackpad gestures for macOS.</h1>
+    <p class="sub">A small, joyful menu bar app. Tap, hold, or swipe to press a key, run a Shortcut, or open an app.</p>
+    <div class="buttons">
+      <a class="btn btn-get" href="https://github.com/HMDRAMS-DEV/tapestry/releases/latest/download/Tapestry.zip">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.2 8.5c0-1.6 1.3-2.4 1.4-2.4-.8-1.1-2-1.3-2.4-1.3-1-.1-2 .6-2.5.6s-1.3-.6-2.2-.6C4.4 4.8 3.3 5.5 2.7 6.6c-1.2 2.1-.3 5.2.9 6.9.6.8 1.2 1.7 2.1 1.7.9 0 1.2-.5 2.2-.5s1.3.5 2.2.5c.9 0 1.5-.8 2-1.7.6-.9.9-1.8.9-1.9 0 0-1.8-.7-1.8-3.1zM9.6 3.6c.5-.6.8-1.4.7-2.2-.7 0-1.5.5-2 1.1-.4.5-.8 1.3-.7 2.1.8.1 1.5-.4 2-1z"/></svg>
+        <span>Get Tapestry</span>
+      </a>
+      <a class="btn btn-secondary" href="#demo">Watch the demo</a>
+    </div>
+    <p class="req">Free. macOS 15 or later on Apple silicon.</p>
+  </header>
+
+  <section class="demo" id="demo">
+    <div class="frame">
+      <video id="video" src="/assets/demo.mp4" poster="/assets/poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Tapestry demo: a four-finger swipe opens Claude, a three-finger tap starts dictation, a four-finger tap sends the prompt."></video>
+      <button class="sound" id="sound" type="button" aria-pressed="false">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path id="wave" d="M11 5.5c.9.7 1.4 1.5 1.4 2.5s-.5 1.8-1.4 2.5"/><path id="mute" d="M11 6l3 4m0-4l-3 4"/></svg>
+        <span id="soundLabel">Sound on</span>
+      </button>
+    </div>
+  </section>
+
+  <main class="points" id="how">
+    <section class="point">
+      <div class="visual">
+        <div class="stage loop tap">
+          <div class="result"><div class="key"><span class="g">⌥</span><small>option</small></div></div>
+          <div class="tp"><div class="hand">
+            <i class="f" style="left:-62px;top:6px"></i><i class="f" style="left:0;top:-14px"></i><i class="f" style="left:62px;top:0"></i>
+          </div></div>
+        </div>
+      </div>
+      <div class="copy">
+        <p class="label" style="color: var(--accent)">Talk</p>
+        <h2>Tap three fingers to dictate.</h2>
+        <p>Map it to ⌥ Option and your dictation app, like <a href="https://parrot.ramihmd.com">Parrot</a>, starts listening. Your hands stay on the trackpad.</p>
+      </div>
+    </section>
+
+    <section class="point">
+      <div class="visual">
+        <div class="stage loop tap">
+          <div class="result"><div class="key wide"><span class="g">↩</span><small>return</small></div></div>
+          <div class="tp"><div class="hand">
+            <i class="f" style="left:-93px;top:10px"></i><i class="f" style="left:-31px;top:-14px"></i><i class="f" style="left:31px;top:-16px"></i><i class="f" style="left:93px;top:0"></i>
+          </div></div>
+        </div>
+      </div>
+      <div class="copy">
+        <p class="label" style="color: var(--pink)">Send</p>
+        <h2>Tap four to send.</h2>
+        <p>Return, ⌘↩, or any shortcut you like. The prompt goes out without reaching for the keyboard.</p>
+      </div>
+    </section>
+
+    <section class="point">
+      <div class="visual">
+        <div class="stage loop swipe">
+          <div class="result"><div class="pill"><span>Open</span> Claude Terminal</div></div>
+          <div class="tp">
+            <svg viewBox="0 0 360 230" aria-hidden="true">
+              <g class="cone"><path d="M230 160 L79.0 62.0 A180 180 0 0 1 132.0 9.0 Z" fill="var(--accent)" fill-opacity=".1"/>
+              <line x1="230" y1="160" x2="102.7" y2="32.7" stroke="var(--accent)" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="4 6"/></g>
+            </svg>
+            <div class="hand" style="left:0;top:0">
+              <i class="f" style="--x0:137px;--y0:175px;--x1:47px;--y1:85px"></i><i class="f" style="--x0:199px;--y0:151px;--x1:109px;--y1:61px"></i>
+              <i class="f" style="--x0:261px;--y0:149px;--x1:171px;--y1:59px"></i><i class="f" style="--x0:323px;--y0:165px;--x1:233px;--y1:75px"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="copy">
+        <p class="label" style="color: var(--amber)">Swipe</p>
+        <h2>Swipe any way.</h2>
+        <p>Up, down, left, right, or on the diagonal. Press any key, run a Shortcut, or open an app or a link.</p>
+      </div>
+    </section>
+
+    <section class="point">
+      <div class="visual">
+        <div class="stage loop swipe">
+          <div class="result"><div class="pill"><span>Learned</span> Four-finger swipe down</div></div>
+          <div class="tp">
+            <svg viewBox="0 0 360 230" aria-hidden="true">
+              <g class="cone"><path d="M180 50 L241.6 219.1 A180 180 0 0 1 118.4 219.1 Z" fill="var(--accent)" fill-opacity=".1"/>
+              <line x1="180" y1="50" x2="180" y2="205" stroke="var(--accent)" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="4 6"/></g>
+            </svg>
+            <div class="hand" style="left:0;top:0">
+              <i class="f" style="--x0:87px;--y0:64px;--x1:87px;--y1:164px"></i><i class="f" style="--x0:149px;--y0:40px;--x1:149px;--y1:140px"></i>
+              <i class="f" style="--x0:211px;--y0:38px;--x1:211px;--y1:138px"></i><i class="f" style="--x0:273px;--y0:54px;--x1:273px;--y1:154px"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="copy">
+        <p class="label" style="color: var(--accent)">Teach</p>
+        <h2>Show it the gesture.</h2>
+        <p>Click Record Gesture, then do it on the trackpad. Tapestry learns the fingers and the direction. Then pick what it does, like ⌃U.</p>
+      </div>
+    </section>
+
+    <section class="point">
+      <div class="visual">
+        <div class="stage">
+          <div class="result" style="gap:14px"><div class="pill"><span>Tap</span> short, still press</div><div class="pill"><span>Swipe</span> long and on line</div></div>
+          <div class="tp">
+            <svg viewBox="0 0 360 230" aria-hidden="true">
+              <path d="M180 115 L237.2 26.9 A105 105 0 0 1 268.1 57.8 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <path d="M180 115 L91.9 57.8 A105 105 0 0 1 122.8 26.9 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <path d="M180 115 L268.1 172.2 A105 105 0 0 1 237.2 203.1 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <path d="M180 115 L122.8 203.1 A105 105 0 0 1 91.9 172.2 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <path d="M180 115 L278.7 79.1 A105 105 0 0 1 278.7 150.9 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <path d="M180 115 L215.9 213.7 A105 105 0 0 1 144.1 213.7 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <path d="M180 115 L81.3 150.9 A105 105 0 0 1 81.3 79.1 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <path d="M180 115 L144.1 16.3 A105 105 0 0 1 215.9 16.3 Z" fill="var(--accent)" fill-opacity=".12"/>
+              <circle cx="180" cy="115" r="5" fill="var(--accent)"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="copy">
+        <p class="label" style="color: var(--muted)">Deliberate</p>
+        <h2>Only what you meant.</h2>
+        <p>Taps need a short, still press, so drags never count. Swipes must travel a third of the trackpad and stay on line. Anything in between, and scrolling, stays with macOS.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer" id="get">
+    <div class="footer-brand"><picture><source srcset="/assets/icon-dark.png" media="(prefers-color-scheme: dark)"><img src="/assets/icon.png" alt=""></picture>
+      <div><span>Tapestry</span><small>Free and <a href="https://github.com/HMDRAMS-DEV/tapestry" style="text-decoration: underline; text-underline-offset: 3px;">open source</a>. macOS 15 or later on Apple silicon.</small></div>
+    </div>
+    <div class="buttons">
+      <a class="btn btn-get" href="https://github.com/HMDRAMS-DEV/tapestry/releases/latest/download/Tapestry.zip">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.2 8.5c0-1.6 1.3-2.4 1.4-2.4-.8-1.1-2-1.3-2.4-1.3-1-.1-2 .6-2.5.6s-1.3-.6-2.2-.6C4.4 4.8 3.3 5.5 2.7 6.6c-1.2 2.1-.3 5.2.9 6.9.6.8 1.2 1.7 2.1 1.7.9 0 1.2-.5 2.2-.5s1.3.5 2.2.5c.9 0 1.5-.8 2-1.7.6-.9.9-1.8.9-1.9 0 0-1.8-.7-1.8-3.1zM9.6 3.6c.5-.6.8-1.4.7-2.2-.7 0-1.5.5-2 1.1-.4.5-.8 1.3-.7 2.1.8.1 1.5-.4 2-1z"/></svg>
+        <span>Get Tapestry</span>
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/HMDRAMS-DEV/tapestry"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>View on GitHub</span></a>
+    </div>
+  </footer>
+  <p class="legal">Tapestry is signed and notarized by Apple. It reads touches through a private macOS framework, so a future macOS update could break it. Claude is a trademark of Anthropic. Tapestry is not affiliated with or endorsed by Anthropic.</p>
+
+<script>
+// Sound toggle for the demo. Browsers only autoplay muted video.
+(() => {
+  const video = document.getElementById('video'), btn = document.getElementById('sound');
+  const label = document.getElementById('soundLabel'), wave = document.getElementById('wave'), mute = document.getElementById('mute');
+  const sync = () => {
+    btn.setAttribute('aria-pressed', String(!video.muted));
+    label.textContent = video.muted ? 'Sound on' : 'Sound off';
+    wave.style.display = video.muted ? 'none' : '';
+    mute.style.display = video.muted ? '' : 'none';
+  };
+  btn.addEventListener('click', () => {
+    video.muted = !video.muted;
+    if (!video.muted) { video.currentTime = 0; video.play(); }
+    sync();
+  });
+  sync();
+})();
+
+// Points blur in as they scroll into view, then their visuals start looping.
+const io = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting }) => {
+  if (isIntersecting) target.classList.add('seen');
+}), { threshold: .35 });
+document.querySelectorAll('.point').forEach(el => io.observe(el));
+</script>
+<!-- Vercel Web Analytics: page views, no cookies. Downloads are counted by GitHub. -->
+<script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>
