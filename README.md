@@ -42,7 +42,7 @@ Because the framework is private, a future macOS update could break it.
 
 ## Install
 
-Download `Tapestry.zip` from the [latest release](https://github.com/HMDRAMS-DEV/tapestry/releases/latest), unzip it, and move Tapestry to Applications. It is signed and notarized.
+Download `Tapestry.dmg` from the [latest release](https://github.com/HMDRAMS-DEV/tapestry/releases/latest), open it, and drag Tapestry to Applications. It is signed and notarized.
 
 ## Build
 

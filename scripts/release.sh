@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Ships the version in Tapestry/Info.plist: builds the app, signs it with the Developer ID,
-# notarizes and staples it, and publishes build/Tapestry.zip as a GitHub release.
+# packages it as a drag-to-Applications disk image, notarizes and staples the image, and
+# publishes build/Tapestry.dmg as a GitHub release.
 #
 #     scripts/release.sh "What changed, in a sentence or two."
 #
@@ -21,7 +22,8 @@ notes="${1:?Usage: scripts/release.sh \"release notes\"}"
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Tapestry/Info.plist)
 tag="v$version"
 app=build/Tapestry.app
-zip=build/Tapestry.zip
+dmg=build/Tapestry.dmg
+stage=build/dmg
 
 [[ -z $(git status --porcelain) ]] || { echo "Commit or stash your changes first."; exit 1; }
 if gh release view "$tag" -R "$repo" >/dev/null 2>&1; then echo "$tag is already released."; exit 1; fi
@@ -31,14 +33,17 @@ if gh release view "$tag" -R "$repo" >/dev/null 2>&1; then echo "$tag is already
 codesign --force --timestamp --options runtime --sign "$identity" --identifier dev.tapestry.Tapestry "$app"
 codesign --verify --strict "$app"
 
-# notarytool takes a zip, but the ticket is stapled to the app, so zip it again afterwards.
-rm -f "$zip"
-ditto -c -k --keepParent "$app" "$zip"
-xcrun notarytool submit "$zip" --keychain-profile "$notary" --wait
-xcrun stapler staple "$app"
-spctl --assess --type execute "$app"
-rm -f "$zip"
-ditto -c -k --keepParent "$app" "$zip"
+# Notarizing the signed image covers the app inside it. Stapling the image lets it open offline.
+rm -rf "$stage" "$dmg"
+mkdir -p "$stage"
+ditto "$app" "$stage/Tapestry.app"
+ln -s /Applications "$stage/Applications"
+hdiutil create -srcfolder "$stage" -volname Tapestry -fs HFS+ -format UDZO -imagekey zlib-level=9 -ov "$dmg" -quiet
+rm -rf "$stage"
+codesign --force --timestamp --sign "$identity" "$dmg"
+xcrun notarytool submit "$dmg" --keychain-profile "$notary" --wait
+xcrun stapler staple "$dmg"
+spctl --assess --type open --context context:primary-signature "$dmg"
 
-gh release create "$tag" "$zip" -R "$repo" --target main --title "Tapestry $version" --notes "$notes"
+gh release create "$tag" "$dmg" -R "$repo" --target main --title "Tapestry $version" --notes "$notes"
 echo "Released Tapestry $version: https://github.com/$repo/releases/tag/$tag"
